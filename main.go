@@ -8,29 +8,39 @@ import (
 
 var someTestVideo = "JxWfvtnHtS0"
 
-func getAudio(youtubeId string) (string, error) {
+type audioRecord struct {
+	File      string
+	YoutubeID string
+	Title     string
+}
+
+func getAudio(youtubeID string) (*audioRecord, error) {
 	for quality := -1; quality > -6; quality-- {
 		fmt.Println("Trying quality ", quality)
-		if videoDesc, err := youtubeGet(youtubeId, quality); err != nil {
-			return "", err
-		} else {
-			fmt.Println(videoDesc)
+		videoTitle, err := youtubeGet(youtubeID, quality)
+		if err != nil {
+			return nil, err
 		}
-		outname := fmt.Sprintf("%s_%v.mp3", youtubeId, quality)
-		if err := transcode(youtubeId, outname, 23e3); err != nil {
+		fmt.Println(videoTitle)
+		outname := fmt.Sprintf("%s_%v.mp3", youtubeID, quality)
+		if err := transcode(youtubeID, outname, 23e3); err != nil {
 			log.Printf("Could not extract audio: %v. Trying next better quality.", err)
 		} else {
 			log.Println("Success")
-			return outname, nil
+			return &audioRecord{File: outname, YoutubeID: youtubeID, Title: videoTitle}, nil
 		}
 	}
-	return "", errors.New("Could not transcode any of the qualities")
+	return nil, errors.New("Could not transcode any of the qualities")
 }
 
 func main() {
-	if file, err := getAudio(someTestVideo); err != nil {
-		log.Fatal("Could not get audio: ", err)
-	} else {
-		fmt.Println("The audio is now at: ", file)
+	newAudio, close := getDatabaseHandlers()
+	defer func() { close <- true }()
+
+	audio, err := getAudio(someTestVideo)
+
+	if err != nil {
+		log.Fatalln("Could not get audio: ", err)
 	}
+	newAudio <- audio
 }
