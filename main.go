@@ -17,13 +17,13 @@ type audioRecord struct {
 func getAudio(youtubeID string) (*audioRecord, error) {
 	for quality := -1; quality > -6; quality-- {
 		fmt.Println("Trying quality ", quality)
-		videoTitle, err := youtubeGet(youtubeID, quality)
+		videoTitle, err := youtubeGet(youtubeID, quality) // "lala", error(nil)
 		if err != nil {
 			return nil, err
 		}
 		fmt.Println(videoTitle)
 		outname := fmt.Sprintf("%s_%v.mp3", youtubeID, quality)
-		if err := transcode(youtubeID, outname, 23e3); err != nil {
+		if err := transcode(youtubeID, outname, 64e3); err != nil {
 			log.Printf("Could not extract audio: %v. Trying next better quality.", err)
 		} else {
 			log.Println("Success")
@@ -34,13 +34,16 @@ func getAudio(youtubeID string) (*audioRecord, error) {
 }
 
 func main() {
-	newAudio, close := getDatabaseHandlers()
-	defer func() { close <- true }()
+	db, err := getDatabaseHandler("localhost")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.close()
 
 	audio, err := getAudio(someTestVideo)
 
 	if err != nil {
 		log.Fatalln("Could not get audio: ", err)
 	}
-	newAudio <- audio
+	db.save(audio)
 }

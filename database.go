@@ -7,27 +7,42 @@ import (
 	mgo "gopkg.in/mgo.v2"
 )
 
-func getDatabaseHandlers() (chan<- *audioRecord, chan<- bool) {
-	session, err := mgo.Dial("localhost")
+type db struct {
+	savechan  chan<- *audioRecord
+	closechan chan bool
+}
+
+func getDatabaseHandler(address string) (*db, error) {
+	session, err := mgo.Dial(address)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 	c := session.DB("goillotine").C("audio")
-	save := make(chan *audioRecord)
-	close := make(chan bool)
+	savechan := make(chan *audioRecord)
+	closechan := make(chan bool)
 	go func() {
 		for {
 			select {
-			case a := <-save:
+			case a := <-savechan:
 				if err := c.Insert(a); err != nil {
 					log.Fatalln(err)
 				}
 				fmt.Println("added: ", a)
-			case <-close:
+			case <-closechan:
 				session.Close()
+				closechan <- true
 				break
 			}
 		}
 	}()
-	return save, close
+	return &db{savechan: savechan, closechan: closechan}, nil
+}
+
+func (self *db) save(content *audioRecord) {
+	self.savechan <- content
+}
+
+func (self *db) close() {
+	self.closechan <- true
+	<-self.closechan
 }
