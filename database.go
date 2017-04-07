@@ -7,12 +7,12 @@ import (
 	mgo "gopkg.in/mgo.v2"
 )
 
-type db struct {
+type databaseHandler struct {
 	savechan  chan<- *audioRecord
 	closechan chan bool
 }
 
-func getDatabaseHandler(address string) (*db, error) {
+func getDatabaseHandler(address string) (*databaseHandler, error) {
 	session, err := mgo.Dial(address)
 	if err != nil {
 		return nil, err
@@ -35,14 +35,14 @@ func getDatabaseHandler(address string) (*db, error) {
 			}
 		}
 	}()
-	return &db{savechan: savechan, closechan: closechan}, nil
+	return &databaseHandler{savechan: savechan, closechan: closechan}, nil
 }
 
-func (self *db) save(content *audioRecord) {
+func (self *databaseHandler) save(content *audioRecord) {
 	self.savechan <- content
 }
 
-func (self *db) close() {
+func (self *databaseHandler) close() {
 	self.closechan <- true
 	<-self.closechan
 }
