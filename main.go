@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var someTestVideo = "JxWfvtnHtS0"
+var host = flag.String("host", "localhost:8000", "How am I to be known?")
 
 var db *databaseHandler
 
@@ -66,7 +67,7 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 	feed := &feeds.Feed{
 		Title: "My private feed",
 		Link: &feeds.Link{
-			Href: "http://localhost:8000/rss",
+			Href: "http://" + *host + "/rss",
 		},
 		Created: time.Now(),
 	}
@@ -75,7 +76,7 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 		feed.Add(&feeds.Item{
 			Title: ar.Title,
 			Link: &feeds.Link{
-				Href:   "http://localhost:8000/" + ar.File,
+				Href:   "http://" + *host + "/" + ar.File,
 				Type:   "audio/mpeg",
 				Length: "1",
 			},
@@ -90,6 +91,7 @@ func feedHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	flag.Parse()
 
 	if _, err := os.Stat("./audioStore"); os.IsNotExist(err) {
 		os.Mkdir("./audioStore", 0700)
@@ -106,8 +108,8 @@ func main() {
 	r.HandleFunc("/add/{youtubeID}", addHandler)
 	r.HandleFunc("/rss", feedHandler)
 	r.PathPrefix("/audioStore/").Handler(http.StripPrefix("/audioStore/", http.FileServer(http.Dir("./audioStore"))))
-	fmt.Println("listening...")
-	err = http.ListenAndServe(":8000", r)
+	fmt.Println("listening on ", *host, " ...")
+	err = http.ListenAndServe(*host, r)
 	if err != nil {
 		log.Fatalln(err)
 	}
