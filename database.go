@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	mgo "gopkg.in/mgo.v2"
 )
@@ -10,6 +11,7 @@ import (
 type databaseHandler struct {
 	savechan  chan<- *audioRecord
 	closechan chan bool
+	session   *mgo.Session
 }
 
 func getDatabaseHandler(address string) (*databaseHandler, error) {
@@ -35,14 +37,29 @@ func getDatabaseHandler(address string) (*databaseHandler, error) {
 			}
 		}
 	}()
-	return &databaseHandler{savechan: savechan, closechan: closechan}, nil
+	return &databaseHandler{savechan: savechan, closechan: closechan, session: session}, nil
 }
 
-func (self *databaseHandler) save(content *audioRecord) {
-	self.savechan <- content
+func (d *databaseHandler) save(content *audioRecord) {
+	d.savechan <- content
 }
 
-func (self *databaseHandler) close() {
-	self.closechan <- true
-	<-self.closechan
+func (d *databaseHandler) listSince(start time.Time) ([]*audioRecord, error) {
+	sessionCopy := d.session.Copy()
+	defer sessionCopy.Close()
+
+	c := sessionCopy.DB("goillotine").C("audio")
+
+	var ret []*audioRecord
+	err := c.Find(nil).All(&ret)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (d *databaseHandler) close() {
+	d.closechan <- true
+	<-d.closechan
 }
